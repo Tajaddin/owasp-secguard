@@ -1,0 +1,7 @@
+- id: secguard-scan
+  name: secguard secrets scan
+  description: Block commits that contain credentials (API keys, private keys, DB URLs).
+  entry: secguard-scan
+  language: python
+  pass_filenames: true
+  types: [text]

@@ -1,0 +1,12 @@
+{
+  "min_severity": "medium",
+  "malicious_samples": 25,
+  "benign_samples": 20,
+  "true_positives": 25,
+  "false_negatives": 0,
+  "false_positives": 0,
+  "recall_pct": 100.0,
+  "precision_pct": 100.0,
+  "false_positive_rate_pct": 0.0,
+  "f1": 1.0
+}

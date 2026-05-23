@@ -25,6 +25,27 @@ python -m benchmarks.detection_bench
 
 The benign set is deliberately adversarial toward naive detectors: it includes "Please select your database plan", "order by date please", and "Drop me an email when you union the teams", which a careless regex would flag. The detectors use word-boundary and structural patterns (and re-scan the URL-decoded form) to separate attacks from prose.
 
+## How to run
+
+Prerequisites: Python 3.10+.
+
+```bash
+# install (with the FastAPI middleware extra)
+pip install -e ".[dev,fastapi]"
+
+# unit tests
+pytest -q
+
+# detection benchmark (the F1 = 1.0 hero)
+python -m benchmarks.detection_bench
+
+# CLI: scan a file or directory for committed secrets
+secguard-scan path/to/file ...
+secguard-scan --staged          # scan git-staged files (pre-commit usage)
+```
+
+Smoke test: `python -c "from secguard import scan_value; print(scan_value(\"1' OR '1'='1\"))"` should print one SQL-injection detection.
+
 ## Two tools
 
 ### 1. Injection-detection middleware (FastAPI / Starlette)

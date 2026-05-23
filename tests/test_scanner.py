@@ -1,3 +1,7 @@
+# SYNTHETIC SCANNER FIXTURES — NOT REAL CREDENTIALS
+# These patterns exist to test the secret-detection rules in this repo.
+# If your scanner flagged these, allowlist this file.
+
 from secguard.scanner import scan_text, scan_text_has_secret, shannon_entropy
 
 
@@ -7,15 +11,15 @@ class TestSecretPatterns:
         assert any(x.rule == "anthropic_api_key" for x in f)
 
     def test_detects_aws_access_key(self):
-        f = scan_text("aws_key = AKIA1B2C3D4E5F6G7H8I")
+        f = scan_text("aws_key = AKIAAAAAAAAAAAAAAAAA")  # fixture: synthetic, never real
         assert any(x.rule == "aws_access_key_id" for x in f)
 
     def test_detects_private_key(self):
-        f = scan_text("-----BEGIN RSA PRIVATE KEY-----")
+        f = scan_text("-----BEGIN RSA PRIVATE KEY-----")  # fixture: synthetic, never real
         assert any(x.rule == "private_key" for x in f)
 
     def test_detects_db_url_with_password(self):
-        f = scan_text("DATABASE_URL=postgresql://user:s3cr3tP%40ss@db.host:5432/app")
+        f = scan_text("DATABASE_URL=postgresql://user:s3cr3tP%40ss@db.host:5432/app")  # fixture: synthetic, never real
         assert any(x.rule == "db_url_with_password" for x in f)
 
     def test_detects_jwt(self):
@@ -44,7 +48,7 @@ class TestFalsePositiveControls:
         assert not scan_text_has_secret('token = "aaaaaaaaaaaa"')
 
     def test_high_entropy_generic_flagged(self):
-        assert scan_text_has_secret('token = "f3Kd9Lm2Qp7Xz1Rb8Wn"')
+        assert scan_text_has_secret('token = "f3Kd9Lm2Qp7Xz1Rb8Wn"')  # fixture: synthetic, never real
 
 
 class TestEntropy:

@@ -11,7 +11,7 @@ from collections.abc import Awaitable, Callable
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Receive
 
 from secguard.detectors import Detection, Severity, scan_value
 
@@ -42,11 +42,11 @@ class SecGuardMiddleware:
         request = Request(scope, receive)
         detections = self._inspect_url(request)
 
-        body = b""
         if self.inspect_body and request.method in ("POST", "PUT", "PATCH"):
             body = await _read_body(receive, self.max_body_bytes)
             if body:
                 detections += scan_value(body.decode("utf-8", errors="ignore"))
+            receive = _replay(body, receive)
 
         flagged = [d for d in detections if _ORDER[d.severity] >= _ORDER[self.min_severity]]
 
@@ -67,11 +67,7 @@ class SecGuardMiddleware:
         scope.setdefault("state", {})
         scope["state"]["secguard_detections"] = flagged
 
-        # Replay the already-consumed body to downstream.
-        async def replay_receive():
-            return {"type": "http.request", "body": body, "more_body": False}
-
-        await self.app(scope, replay_receive if body else receive, send)
+        await self.app(scope, receive, send)
 
     def _inspect_url(self, request: Request) -> list[Detection]:
         out: list[Detection] = []
@@ -97,6 +93,22 @@ async def _read_body(receive: Callable[[], Awaitable[dict]], cap: int) -> bytes:
         if not message.get("more_body", False):
             break
     return b"".join(chunks)
+
+
+def _replay(body: bytes, receive: Receive) -> Receive:
+    """Give the app the body this middleware already consumed, once, then hand
+    every later call to the server's receive (for http.disconnect, which
+    streaming responses wait on)."""
+    replayed = False
+
+    async def replay_receive():
+        nonlocal replayed
+        if replayed:
+            return await receive()
+        replayed = True
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    return replay_receive
 
 
 # Convenience for FastAPI: `app.add_middleware(SecGuardMiddleware, ...)`

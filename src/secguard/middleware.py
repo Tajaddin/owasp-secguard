@@ -4,6 +4,10 @@ Checks the path, query parameters, and (optionally) the body. On a detection
 at or above the configured severity it either blocks with 403 or passes
 through while recording the detections (audit mode). Detections are attached
 to request.state for downstream logging.
+
+Bodies are inspected up to ``max_body_bytes``. A larger body is rejected with
+413 in blocking mode, since the part past the limit would go unchecked; in
+audit mode the inspected prefix is replayed and the rest streams through.
 """
 from __future__ import annotations
 
@@ -43,10 +47,20 @@ class SecGuardMiddleware:
         detections = self._inspect_url(request)
 
         if self.inspect_body and request.method in ("POST", "PUT", "PATCH"):
-            body = await _read_body(receive, self.max_body_bytes)
+            body, more_body = await _read_body(receive, self.max_body_bytes)
+            if len(body) > self.max_body_bytes and self.block:
+                response = JSONResponse(
+                    {
+                        "error": "request body exceeds the inspection limit",
+                        "max_body_bytes": self.max_body_bytes,
+                    },
+                    status_code=413,
+                )
+                await response(scope, receive, send)
+                return
             if body:
                 detections += scan_value(body.decode("utf-8", errors="ignore"))
-            receive = _replay(body, receive)
+            receive = _replay(body, more_body, receive)
 
         flagged = [d for d in detections if _ORDER[d.severity] >= _ORDER[self.min_severity]]
 
@@ -77,28 +91,31 @@ class SecGuardMiddleware:
         return out
 
 
-async def _read_body(receive: Callable[[], Awaitable[dict]], cap: int) -> bytes:
+async def _read_body(receive: Callable[[], Awaitable[dict]], cap: int) -> tuple[bytes, bool]:
+    """Read the body until it ends or passes ``cap``.
+
+    Returns the bytes read and whether more body is still to come. Reading
+    stops on the first chunk past ``cap``, so at most one chunk over it is held.
+    """
     chunks: list[bytes] = []
     size = 0
-    while True:
+    more_body = True
+    while more_body and size <= cap:
         message = await receive()
         if message["type"] != "http.request":
+            # Leave the disconnect for the app's next receive() to report.
             break
         chunk = message.get("body", b"")
-        size += len(chunk)
-        if size > cap:
-            chunks.append(chunk)
-            break
         chunks.append(chunk)
-        if not message.get("more_body", False):
-            break
-    return b"".join(chunks)
+        size += len(chunk)
+        more_body = message.get("more_body", False)
+    return b"".join(chunks), more_body
 
 
-def _replay(body: bytes, receive: Receive) -> Receive:
+def _replay(body: bytes, more_body: bool, receive: Receive) -> Receive:
     """Give the app the body this middleware already consumed, once, then hand
-    every later call to the server's receive (for http.disconnect, which
-    streaming responses wait on)."""
+    every later call to the server's receive (the rest of a body that passed
+    the limit, and http.disconnect, which streaming responses wait on)."""
     replayed = False
 
     async def replay_receive():
@@ -106,7 +123,7 @@ def _replay(body: bytes, receive: Receive) -> Receive:
         if replayed:
             return await receive()
         replayed = True
-        return {"type": "http.request", "body": body, "more_body": False}
+        return {"type": "http.request", "body": body, "more_body": more_body}
 
     return replay_receive
 

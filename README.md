@@ -60,6 +60,8 @@ app.add_middleware(SecGuardMiddleware, min_severity=Severity.MEDIUM, block=True)
 
 Inspects the path, query params, and request body (URL-decoded). On a detection at or above `min_severity` it returns `403` with the matched categories, or, in audit mode (`block=False`), passes the request through and records detections on request state for logging.
 
+The body is inspected up to `max_body_bytes` (256 KiB by default). A larger body gets `413` in blocking mode, because the part past the limit would go unchecked; in audit mode the app still receives the whole body, with only the first `max_body_bytes` inspected.
+
 ### 2. Secrets scanner (pre-commit / CI)
 
 ```bash

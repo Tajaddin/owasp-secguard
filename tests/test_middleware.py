@@ -80,6 +80,10 @@ class TestBlockingMode:
         assert resp.status_code == 200
         assert resp.json()["received"]["name"] == "Alice"
 
+    def test_rejects_body_over_the_inspection_limit(self):
+        client = TestClient(make_app(max_body_bytes=1024))
+        resp = client.post("/items", json={"name": "a" * 2000})
+        assert resp.status_code == 413
 
 
 class TestBodyReplay:
@@ -123,6 +127,34 @@ class TestBodyReplay:
             {"type": "http.disconnect"},
         ]
 
+    def test_audit_mode_streams_an_oversized_body_through_intact(self):
+        sent = b'{"name": "' + b"a" * 4000 + b'"}'
+        incoming = [
+            {"type": "http.request", "body": sent[i : i + 1000], "more_body": i + 1000 < len(sent)}
+            for i in range(0, len(sent), 1000)
+        ]
+        received = []
+
+        async def downstream(scope, receive, send):
+            while True:
+                message = await receive()
+                received.append(message["body"])
+                if not message["more_body"]:
+                    break
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b""})
+
+        async def receive():
+            return incoming.pop(0)
+
+        async def send(message):
+            pass
+
+        scope = {"type": "http", "method": "POST", "path": "/", "query_string": b"", "headers": []}
+        middleware = SecGuardMiddleware(downstream, block=False, max_body_bytes=1500)
+        asyncio.run(middleware(scope, receive, send))
+
+        assert b"".join(received) == sent
 
 
 class TestAuditMode:

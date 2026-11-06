@@ -66,7 +66,10 @@ class SecGuardMiddleware:
                 detections += _scan_body(body)
             receive = _replay(body, more_body, receive)
 
-        flagged = [d for d in detections if _ORDER[d.severity] >= _ORDER[self.min_severity]]
+        unique: dict[tuple, Detection] = {}
+        for d in detections:
+            unique.setdefault((d.category, d.pattern), d)
+        flagged = [d for d in unique.values() if _ORDER[d.severity] >= _ORDER[self.min_severity]]
 
         if flagged and self.block:
             response = JSONResponse(

@@ -1,6 +1,6 @@
 # owasp-secguard
 
-> OWASP injection-detection middleware for FastAPI plus a secrets scanner. **100% recall at 0% false-positive rate (F1 = 1.0) on its own 45-sample labeled corpus** of SQLi / XSS / path-traversal / command-injection attacks vs. benign inputs. Dependency-light, 45 tests.
+> OWASP injection-detection middleware for FastAPI plus a secrets scanner. **100% recall at 0% false-positive rate (F1 = 1.0) on its own 45-sample labeled corpus** of SQLi / XSS / path-traversal / command-injection attacks vs. benign inputs. Dependency-light, 46 tests.
 
 [![ci](https://github.com/Tajaddin/owasp-secguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Tajaddin/owasp-secguard/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -103,7 +103,7 @@ All detectors run on both the raw and the URL-decoded value, so percent-encoded 
 
 ```bash
 pip install -e ".[dev]"
-pytest --cov=secguard      # 45 tests, 96% coverage
+pytest --cov=secguard      # 46 tests, 96% coverage
 ```
 
 - **test_detectors.py**: each category detects its payloads (incl. URL-encoded); benign prose and the severity threshold are respected.

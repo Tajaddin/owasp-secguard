@@ -119,6 +119,16 @@ class TestBlockingMode:
             )
             assert resp.status_code == 403, body
 
+    def test_reports_each_rule_once(self):
+        client = TestClient(make_app())
+        resp = client.post(
+            "/raw?q=<script>x</script>",
+            content=b"<script>alert(1)</script>\\n",
+            headers={"content-type": "text/plain"},
+        )
+        assert resp.status_code == 403
+        assert [d["rule"] for d in resp.json()["detections"]] == ["script-tag"]
+
     def test_rejects_body_over_the_inspection_limit(self):
         client = TestClient(make_app(max_body_bytes=1024))
         resp = client.post("/items", json={"name": "a" * 2000})

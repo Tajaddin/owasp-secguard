@@ -1,6 +1,6 @@
 # owasp-secguard
 
-> OWASP injection-detection middleware for FastAPI plus a secrets scanner. **100% recall at 0% false-positive rate (F1 = 1.0) on a 45-sample labeled corpus** of SQLi / XSS / path-traversal / command-injection attacks vs. benign inputs. Dependency-light, 37 tests.
+> OWASP injection-detection middleware for FastAPI plus a secrets scanner. **100% recall at 0% false-positive rate (F1 = 1.0) on its own 45-sample labeled corpus** of SQLi / XSS / path-traversal / command-injection attacks vs. benign inputs. Dependency-light, 43 tests.
 
 [![ci](https://github.com/Tajaddin/owasp-secguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Tajaddin/owasp-secguard/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -22,6 +22,8 @@ python -m benchmarks.detection_bench
 | **Precision** | **100%** |
 | **False-positive rate** | **0%** |
 | **F1** | **1.0** |
+
+These numbers hold for the 45 samples in `src/secguard/corpus.py` only. The corpus was written alongside the rules, so it shows the rules do what they are meant to on those payloads; it is not an estimate of recall on real attack traffic, where a rule-based detector misses any payload its patterns do not cover.
 
 The benign set is deliberately adversarial toward naive detectors: it includes "Please select your database plan", "order by date please", and "Drop me an email when you union the teams", which a careless regex would flag. The detectors use word-boundary and structural patterns (and re-scan the URL-decoded form) to separate attacks from prose.
 
@@ -101,13 +103,13 @@ All detectors run on both the raw and the URL-decoded value, so percent-encoded 
 
 ```bash
 pip install -e ".[dev]"
-pytest --cov=secguard      # 37 tests, 95% coverage
+pytest --cov=secguard      # 43 tests, 96% coverage
 ```
 
 - **test_detectors.py**: each category detects its payloads (incl. URL-encoded); benign prose and the severity threshold are respected.
 - **test_scanner.py**: each secret type detected and redacted; placeholders / empty / localhost / low-entropy values suppressed; entropy maths.
-- **test_middleware.py**: FastAPI `TestClient` blocks SQLi/XSS/cmd-injection in query and body, allows benign, supports audit mode and a HIGH-only threshold.
-- **test_corpus.py**: gates 100% recall and 0% false positives on the labeled corpus.
+- **test_middleware.py**: FastAPI `TestClient` blocks SQLi/XSS/cmd-injection in query and body (including JSON-escaped payloads), allows benign, supports audit mode and a HIGH-only threshold; returns 413 over the body limit; streaming responses and empty-body POSTs complete.
+- **test_corpus.py**: gates 100% recall and 0% false positives on the 45-sample labeled corpus.
 
 CI also dogfoods the scanner against the repo's own tracked files.
 

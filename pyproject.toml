@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "owasp-secguard"
 version = "0.1.0"
-description = "OWASP injection-detection middleware for FastAPI + a secrets scanner. Hero: 100% recall on a labeled injection corpus at 0% false positives on benign traffic."
+description = "OWASP injection-detection middleware for FastAPI + a secrets scanner. 100% recall and 0% false positives on its 45-sample labeled corpus (25 attacks, 20 benign inputs)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

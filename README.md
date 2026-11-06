@@ -95,7 +95,7 @@ repos:
 | Path traversal | `../` sequences, `/etc/passwd`, Windows `\system32\` |
 | Command injection | chained `; cat`, `$(...)` / backtick substitution, pipe-to-shell |
 
-All detectors run on both the raw and the URL-decoded value, so percent-encoded payloads (e.g. `%2e%2e%2f`) are caught.
+All detectors run on both the raw and the URL-decoded value, so percent-encoded payloads (e.g. `%2e%2e%2f`) are caught. Request bodies that contain JSON string escapes are also scanned with the escapes decoded, so a payload spelled `\u003cscript>` is checked as the `<script>` the app's JSON parser will produce.
 
 ## Testing
 

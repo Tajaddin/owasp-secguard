@@ -11,6 +11,8 @@ audit mode the inspected prefix is replayed and the rest streams through.
 """
 from __future__ import annotations
 
+import json
+import re
 from collections.abc import Awaitable, Callable
 
 from starlette.requests import Request
@@ -20,6 +22,8 @@ from starlette.types import ASGIApp, Receive
 from secguard.detectors import Detection, Severity, scan_value
 
 _ORDER = {Severity.LOW: 0, Severity.MEDIUM: 1, Severity.HIGH: 2}
+
+_JSON_ESCAPE = re.compile(r'\\(?:u[0-9a-fA-F]{4}|["\\/bfnrt])')
 
 
 class SecGuardMiddleware:
@@ -59,7 +63,10 @@ class SecGuardMiddleware:
                 await response(scope, receive, send)
                 return
             if body:
-                detections += scan_value(body.decode("utf-8", errors="ignore"))
+                text = body.decode("utf-8", errors="ignore")
+                detections += scan_value(text)
+                if "\\" in text:
+                    detections += scan_value(_json_unescape(text))
             receive = _replay(body, more_body, receive)
 
         flagged = [d for d in detections if _ORDER[d.severity] >= _ORDER[self.min_severity]]
@@ -110,6 +117,13 @@ async def _read_body(receive: Callable[[], Awaitable[dict]], cap: int) -> tuple[
         size += len(chunk)
         more_body = message.get("more_body", False)
     return b"".join(chunks), more_body
+
+
+def _json_unescape(text: str) -> str:
+    """Decode JSON string escapes the way the app's JSON parser will, so a
+    payload spelled with unicode escapes is scanned as the characters the
+    app actually receives."""
+    return _JSON_ESCAPE.sub(lambda m: json.loads(f'"{m.group(0)}"'), text)
 
 
 def _replay(body: bytes, more_body: bool, receive: Receive) -> Receive:

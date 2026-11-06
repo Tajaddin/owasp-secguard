@@ -80,6 +80,18 @@ class TestBlockingMode:
         assert resp.status_code == 200
         assert resp.json()["received"]["name"] == "Alice"
 
+    def test_blocks_payload_hidden_behind_json_unicode_escapes(self):
+        client = TestClient(make_app())
+        for body in (
+            r'{"q": "\u003cscript>alert(1)\u003c/script>"}',
+            r'{"q": "1 union\u0020select password from users"}',
+            r'{"\u003cscript>alert(1)</script>": 1}',
+        ):
+            resp = client.post(
+                "/items", content=body, headers={"content-type": "application/json"}
+            )
+            assert resp.status_code == 403, body
+
     def test_rejects_body_over_the_inspection_limit(self):
         client = TestClient(make_app(max_body_bytes=1024))
         resp = client.post("/items", json={"name": "a" * 2000})

@@ -1,6 +1,6 @@
 # owasp-secguard
 
-> OWASP injection-detection middleware for FastAPI plus a secrets scanner. **100% recall at 0% false-positive rate (F1 = 1.0) on its own 45-sample labeled corpus** of SQLi / XSS / path-traversal / command-injection attacks vs. benign inputs. Dependency-light, 43 tests.
+> OWASP injection-detection middleware for FastAPI plus a secrets scanner. **100% recall at 0% false-positive rate (F1 = 1.0) on its own 45-sample labeled corpus** of SQLi / XSS / path-traversal / command-injection attacks vs. benign inputs. Dependency-light, 45 tests.
 
 [![ci](https://github.com/Tajaddin/owasp-secguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Tajaddin/owasp-secguard/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
@@ -97,18 +97,18 @@ repos:
 | Path traversal | `../` sequences, `/etc/passwd`, Windows `\system32\` |
 | Command injection | chained `; cat`, `$(...)` / backtick substitution, pipe-to-shell |
 
-All detectors run on both the raw and the URL-decoded value, so percent-encoded payloads (e.g. `%2e%2e%2f`) are caught. Request bodies that contain JSON string escapes are also scanned with the escapes decoded, so a payload spelled `\u003cscript>` is checked as the `<script>` the app's JSON parser will produce.
+All detectors run on both the raw and the URL-decoded value, so percent-encoded payloads (e.g. `%2e%2e%2f`) are caught. A body that parses as JSON is parsed with `json.loads`, as Starlette's `request.json()` does, and every key and string value is scanned, so a payload spelled `\u003cscript>` or sent as UTF-16 or UTF-32 is checked as the `<script>` the endpoint receives. Any other body is scanned as UTF-8 text, a second time with JSON string escapes decoded.
 
 ## Testing
 
 ```bash
 pip install -e ".[dev]"
-pytest --cov=secguard      # 43 tests, 96% coverage
+pytest --cov=secguard      # 45 tests, 96% coverage
 ```
 
 - **test_detectors.py**: each category detects its payloads (incl. URL-encoded); benign prose and the severity threshold are respected.
 - **test_scanner.py**: each secret type detected and redacted; placeholders / empty / localhost / low-entropy values suppressed; entropy maths.
-- **test_middleware.py**: FastAPI `TestClient` blocks SQLi/XSS/cmd-injection in query and body (including JSON-escaped payloads), allows benign, supports audit mode and a HIGH-only threshold; returns 413 over the body limit; streaming responses and empty-body POSTs complete.
+- **test_middleware.py**: FastAPI `TestClient` blocks SQLi/XSS/cmd-injection in query and body (including JSON-escaped, UTF-16/32-encoded and duplicate-key payloads), allows benign, supports audit mode and a HIGH-only threshold; returns 413 over the body limit; streaming responses and empty-body POSTs complete.
 - **test_corpus.py**: gates 100% recall and 0% false positives on the 45-sample labeled corpus.
 
 CI also dogfoods the scanner against the repo's own tracked files.

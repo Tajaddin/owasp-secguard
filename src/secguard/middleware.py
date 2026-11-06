@@ -63,10 +63,7 @@ class SecGuardMiddleware:
                 await response(scope, receive, send)
                 return
             if body:
-                text = body.decode("utf-8", errors="ignore")
-                detections += scan_value(text)
-                if "\\" in text:
-                    detections += scan_value(_json_unescape(text))
+                detections += _scan_body(body)
             receive = _replay(body, more_body, receive)
 
         flagged = [d for d in detections if _ORDER[d.severity] >= _ORDER[self.min_severity]]
@@ -119,10 +116,41 @@ async def _read_body(receive: Callable[[], Awaitable[dict]], cap: int) -> tuple[
     return b"".join(chunks), more_body
 
 
+def _scan_body(body: bytes) -> list[Detection]:
+    """Scan the body as the app will read it.
+
+    A body that parses as JSON is parsed with ``json.loads``, as Starlette's
+    ``request.json()`` does, so escapes are decoded and UTF-16 and UTF-32
+    bodies are detected; every key and string value is then scanned,
+    including both values of a duplicated key, since parsers differ on which
+    one they keep. Any other body is scanned as UTF-8 text, a second time
+    with JSON string escapes decoded.
+    """
+    try:
+        parsed = json.loads(body, object_pairs_hook=list)
+    except (ValueError, RecursionError):
+        text = body.decode("utf-8", errors="ignore")
+        detections = scan_value(text)
+        if "\\" in text:
+            detections += scan_value(_json_unescape(text))
+        return detections
+    return [d for value in _json_strings(parsed) for d in scan_value(value)]
+
+
+def _json_strings(value: object):
+    """Yield every string in JSON parsed with ``object_pairs_hook=list``,
+    where each object is a list of (key, value) pairs."""
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            yield item
+        elif isinstance(item, (list, tuple)):
+            stack.extend(item)
+
+
 def _json_unescape(text: str) -> str:
-    """Decode JSON string escapes the way the app's JSON parser will, so a
-    payload spelled with unicode escapes is scanned as the characters the
-    app actually receives."""
+    """Decode JSON string escapes in text that does not parse as JSON."""
     return _JSON_ESCAPE.sub(lambda m: json.loads(f'"{m.group(0)}"'), text)
 
 

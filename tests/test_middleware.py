@@ -1,4 +1,5 @@
 import asyncio
+import json
 import threading
 
 from fastapi import FastAPI, Request
@@ -86,6 +87,32 @@ class TestBlockingMode:
             r'{"q": "\u003cscript>alert(1)\u003c/script>"}',
             r'{"q": "1 union\u0020select password from users"}',
             r'{"\u003cscript>alert(1)</script>": 1}',
+        ):
+            resp = client.post(
+                "/items", content=body, headers={"content-type": "application/json"}
+            )
+            assert resp.status_code == 403, body
+
+    def test_blocks_payload_in_utf16_and_utf32_json_bodies(self):
+        # json.loads, and so the app, detects these encodings on its own.
+        client = TestClient(make_app())
+        for payload, encoding in (
+            ({"q": "<script>alert(1)</script>"}, "utf-16-le"),
+            ({"q": "<script>alert(1)</script>"}, "utf-32"),
+            ({"q": "1 union select password from users"}, "utf-16"),
+        ):
+            resp = client.post(
+                "/items",
+                content=json.dumps(payload).encode(encoding),
+                headers={"content-type": "application/json"},
+            )
+            assert resp.status_code == 403, encoding
+
+    def test_blocks_payload_in_either_value_of_a_duplicated_key(self):
+        client = TestClient(make_app())
+        for body in (
+            '{"q": "<script>alert(1)</script>", "q": "x"}',
+            '{"q": "x", "q": "<script>alert(1)</script>"}',
         ):
             resp = client.post(
                 "/items", content=body, headers={"content-type": "application/json"}

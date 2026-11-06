@@ -103,7 +103,7 @@ All detectors run on both the raw and the URL-decoded value, so percent-encoded 
 
 ```bash
 pip install -e ".[dev]"
-pytest --cov=secguard      # 46 tests, 96% coverage
+pytest --cov=secguard      # 46 tests, 97% coverage
 ```
 
 - **test_detectors.py**: each category detects its payloads (incl. URL-encoded); benign prose and the severity threshold are respected.

@@ -55,7 +55,7 @@ def main() -> int:
         for p in BENIGN:
             if is_malicious(p, min_sev):
                 print(f"  FP: {p!r}", file=sys.stderr)
-    return 0
+    return 1 if fn or fp else 0
 
 
 if __name__ == "__main__":

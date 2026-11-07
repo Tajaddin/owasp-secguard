@@ -1,5 +1,5 @@
-"""Gates the hero numbers: full recall on the attack corpus, zero false
-positives on the benign corpus."""
+"""Gates the hero numbers on the 45-sample corpus: full recall on its attack
+payloads, zero false positives on its benign inputs."""
 from secguard.corpus import BENIGN, MALICIOUS
 from secguard.detectors import Severity, is_malicious
 
